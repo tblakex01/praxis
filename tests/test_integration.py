@@ -28,7 +28,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def run_fixture(name: str) -> tuple[VerdictReport, list]:
-    fixture = load_fixture(name)
+    fixture = load_fixture(f"{name}.json")
     events = to_events(fixture["trace"])
     assert len(events) == len(fixture["trace"])
     report = TrajectoryVerifier(default_policies()).verify(
@@ -145,7 +145,7 @@ def test_scoring_dedupes_overlapping_policies() -> None:
 
 def test_disabled_judge_is_inert() -> None:
     """Acceptance criterion 6: judge off by default changes nothing."""
-    fixture = load_fixture("safe_localization")
+    fixture = load_fixture("safe_localization.json")
     events = to_events(fixture["trace"])
     context = {"task_type": fixture["task_type"]}
     baseline = TrajectoryVerifier(default_policies()).verify(events, context)

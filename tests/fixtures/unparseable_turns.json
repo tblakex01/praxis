@@ -1,0 +1,46 @@
+{
+  "task_type": "analysis",
+  "description": "Parser robustness: an assistant turn with no fenced block, one with two fenced blocks, one with a truncated call, a single 'No API call found' env turn, then a valid read and submit. All bad turns must normalize to non-action events without crashing; no policy findings expected (only one consecutive env failure, below the loop threshold).",
+  "trace": [
+    {
+      "role": "system",
+      "content": "You are an SRE agent operating on the HotelReservation application deployed in the test-hotel-reservation namespace. Task: analysis — determine the system level and fault type of the incident. Available APIs: get_logs, get_metrics, get_traces, exec_shell, submit. Respond with exactly one API call inside a fenced code block. Submit a dict with keys system_level and fault_type."
+    },
+    {
+      "role": "user",
+      "content": "An incident has been reported. Begin the analysis task: investigate and submit the system level and fault type."
+    },
+    {
+      "role": "assistant",
+      "content": "I believe the geo service is misconfigured at the deployment level. Before calling any APIs, let me reason about which telemetry source would confirm this most directly."
+    },
+    {
+      "role": "assistant",
+      "content": "I will pull logs and metrics together.\n```\nget_logs(namespace=\"test-hotel-reservation\", service=\"geo\")\n```\nAnd at the same time:\n```\nget_metrics(namespace=\"test-hotel-reservation\", service=\"geo\")\n```"
+    },
+    {
+      "role": "assistant",
+      "content": "Let me try the logs call again.\n```\nget_logs(namespace=\n```"
+    },
+    {
+      "role": "env",
+      "content": "No API call found in the response. Please provide exactly one API call inside a fenced code block."
+    },
+    {
+      "role": "assistant",
+      "content": "My call was malformed. Switching to traces with a well-formed call.\n```\nget_traces(namespace=\"test-hotel-reservation\", service=\"geo\")\n```"
+    },
+    {
+      "role": "env",
+      "content": "trace 8f2c: frontend -> geo 2100ms (geo span: config reload loop detected)"
+    },
+    {
+      "role": "assistant",
+      "content": "The traces point at a bad configuration at the service level. Submitting.\n```\nsubmit({\"system_level\": \"service\", \"fault_type\": \"config\"})\n```"
+    },
+    {
+      "role": "env",
+      "content": "Solution submitted. The task will now be evaluated."
+    }
+  ]
+}
