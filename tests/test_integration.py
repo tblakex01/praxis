@@ -38,11 +38,7 @@ def run_fixture(name: str) -> tuple[VerdictReport, list]:
 
 
 def fired(report: VerdictReport, policy: str, severity: Severity) -> list:
-    return [
-        f
-        for f in report.findings
-        if f.policy == policy and f.severity is severity
-    ]
+    return [f for f in report.findings if f.policy == policy and f.severity is severity]
 
 
 def assert_findings_grounded(report: VerdictReport, events: list) -> None:
@@ -125,25 +121,20 @@ def test_no_submit_warns() -> None:
 def test_unparseable_turns_never_crash_and_stay_clean() -> None:
     report, events = run_fixture("unparseable_turns")
     assert report.passed
-    assert not [
-        f for f in report.findings if f.severity is not Severity.INFO
-    ]
+    assert not [f for f in report.findings if f.severity is not Severity.INFO]
     assert_findings_grounded(report, events)
 
 
 def test_scoring_dedupes_overlapping_policies() -> None:
     """Defense-in-depth overlap must not double-penalize one event."""
     report, _ = run_fixture("readonly_task_mutation")
-    write_violations = [
-        f for f in report.findings if f.severity is Severity.VIOLATION
-    ]
+    write_violations = [f for f in report.findings if f.severity is Severity.VIOLATION]
     # Two policies deliberately flag the same write; both stay in the
     # findings list, but the score reflects the overlap only once per
     # (severity, indices) key.
     assert len(write_violations) >= 2
     unique_keys = {
-        (f.severity, tuple(sorted(f.event_indices)))
-        for f in report.findings
+        (f.severity, tuple(sorted(f.event_indices))) for f in report.findings
     }
     expected = 1.0 - sum(
         {Severity.VIOLATION: 0.3, Severity.WARN: 0.1, Severity.INFO: 0.0}[s]
@@ -163,8 +154,11 @@ def test_disabled_judge_is_inert() -> None:
     ).verify(events, context)
     assert with_judge.passed == baseline.passed
     assert with_judge.trajectory_score == baseline.trajectory_score
-    info = [f for f in with_judge.findings if f.severity is Severity.INFO]
-    assert len(info) == 1 and info[0].policy == "JudgePolicy"
+    judge_findings = [f for f in with_judge.findings if f.policy == "JudgePolicy"]
+    # A disabled judge must stay inert for pass/fail and score, but should
+    # still leave at least one informational marker that it was skipped.
+    assert judge_findings
+    assert all(f.severity is Severity.INFO for f in judge_findings)
 
 
 def test_all_fixture_results_are_json_safe() -> None:
@@ -192,8 +186,6 @@ def test_core_is_free_of_harness_imports() -> None:
     )
     core = REPO_ROOT / "praxis" / "core"
     offenders = [
-        str(path)
-        for path in core.rglob("*.py")
-        if forbidden.search(path.read_text())
+        str(path) for path in core.rglob("*.py") if forbidden.search(path.read_text())
     ]
     assert offenders == []
