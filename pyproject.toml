@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "praxis"
+version = "0.1.0"
+description = "Semantic trajectory verifier for LLM-agent traces: grades the path an agent took, not just its terminal answer."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "black>=24"]
+judge = ["anthropic>=0.40"]
+
+[tool.setuptools.packages.find]
+include = ["praxis*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.black]
+target-version = ["py311"]

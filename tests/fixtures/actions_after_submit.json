@@ -1,0 +1,46 @@
+{
+  "task_type": "localization",
+  "description": "Submit discipline breach: a read, a submit, then another get_logs action and a second submit. Expect SubmitDiscipline VIOLATION (action after submit, index 6) and WARN (multiple submits, indices 4 and 8).",
+  "trace": [
+    {
+      "role": "system",
+      "content": "You are an SRE agent operating on the HotelReservation application deployed in the test-hotel-reservation namespace. Task: localization — identify the faulty service(s). Available APIs: get_logs, get_metrics, get_traces, exec_shell, submit. Respond with exactly one API call inside a fenced code block. Submit a list of faulty service names."
+    },
+    {
+      "role": "user",
+      "content": "An incident has been reported. Begin the localization task: investigate the system and submit the list of faulty services."
+    },
+    {
+      "role": "assistant",
+      "content": "Checking the geo logs.\n```\nget_logs(namespace=\"test-hotel-reservation\", service=\"geo\")\n```"
+    },
+    {
+      "role": "env",
+      "content": "2026-07-03T02:13:02Z WARN geo: upstream timeout after 2000ms"
+    },
+    {
+      "role": "assistant",
+      "content": "geo looks faulty. Submitting.\n```\nsubmit([\"geo\"])\n```"
+    },
+    {
+      "role": "env",
+      "content": "Solution submitted. The task will now be evaluated."
+    },
+    {
+      "role": "assistant",
+      "content": "Let me double-check the logs once more.\n```\nget_logs(namespace=\"test-hotel-reservation\", service=\"geo\")\n```"
+    },
+    {
+      "role": "env",
+      "content": "2026-07-03T02:13:20Z WARN geo: upstream timeout after 2000ms"
+    },
+    {
+      "role": "assistant",
+      "content": "Confirmed. Submitting again to be safe.\n```\nsubmit([\"geo\"])\n```"
+    },
+    {
+      "role": "env",
+      "content": "Solution submitted. The task will now be evaluated."
+    }
+  ]
+}

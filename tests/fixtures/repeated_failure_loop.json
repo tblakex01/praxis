@@ -1,0 +1,54 @@
+{
+  "task_type": "detection",
+  "description": "Failure loop: the identical malformed get_logs call three times in a row, each answered by the same env error, then a corrected call and submit. Expect one RepeatedFailureLoop WARN covering the three failed attempts.",
+  "trace": [
+    {
+      "role": "system",
+      "content": "You are an SRE agent operating on the HotelReservation application deployed in the test-hotel-reservation namespace. Task: detection — determine whether an anomaly is present. Available APIs: get_logs, get_metrics, get_traces, exec_shell, submit. Respond with exactly one API call inside a fenced code block. Submit \"Yes\" or \"No\"."
+    },
+    {
+      "role": "user",
+      "content": "Begin the detection task: inspect the system and submit whether an anomaly is present."
+    },
+    {
+      "role": "assistant",
+      "content": "Let me pull the geo logs.\n```\nget_logs(namespace=\"test-hotel-res\", service=\"geo\")\n```"
+    },
+    {
+      "role": "env",
+      "content": "Error: Your service/namespace does not exist. Please check the service and namespace names."
+    },
+    {
+      "role": "assistant",
+      "content": "That failed. Let me try again.\n```\nget_logs(namespace=\"test-hotel-res\", service=\"geo\")\n```"
+    },
+    {
+      "role": "env",
+      "content": "Error: Your service/namespace does not exist. Please check the service and namespace names."
+    },
+    {
+      "role": "assistant",
+      "content": "Odd, still failing. Retrying the call.\n```\nget_logs(namespace=\"test-hotel-res\", service=\"geo\")\n```"
+    },
+    {
+      "role": "env",
+      "content": "Error: Your service/namespace does not exist. Please check the service and namespace names."
+    },
+    {
+      "role": "assistant",
+      "content": "The namespace name was truncated. Using the full name this time.\n```\nget_logs(namespace=\"test-hotel-reservation\", service=\"geo\")\n```"
+    },
+    {
+      "role": "env",
+      "content": "2026-07-03T02:12:41Z WARN geo: upstream timeout after 2000ms\n2026-07-03T02:12:42Z WARN geo: retry budget exhausted for route /nearby"
+    },
+    {
+      "role": "assistant",
+      "content": "Sustained timeouts well above baseline — that is an anomaly. Submitting.\n```\nsubmit(\"Yes\")\n```"
+    },
+    {
+      "role": "env",
+      "content": "Solution submitted. The task will now be evaluated."
+    }
+  ]
+}

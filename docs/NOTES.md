@@ -84,3 +84,38 @@ One lesson per entry. One-line summary on the top line, detail below. Record cor
 - (M1) Spec Section 1 assumed the trace might be serialized dicts with a possible timestamp field — **wrong on both counts** at the `eval` boundary: it's Pydantic `SessionItem` objects, two fields only. Corrected in delta #1.
 - (M1) Spec assumed `@read`/`@write` would cleanly tag every action — **there are no `@write` actions**; mutation hides inside `exec_shell`. Corrected in delta #2. This is the single most important recon finding.
 - (M1) `service.py`'s `/simulate` trace ≠ in-process `history` (it prepends 2 turns and pops a trailing env turn). Fixtures modeled on API output will be subtly off; model fixtures on `history`.
+
+---
+
+## M2–M5 build record (standalone `praxis` repo)
+
+One entry per decision made while implementing the spec in this repository. The single structural adaptation: the spec's Section 4 layout (`aiopslab/orchestrator/verifier/`) was written for an in-tree AIOpsLab drop-in; this repo is the standalone re-homing the README locks in (`praxis/core/` portable engine + `praxis/adapters/aiopslab/`), so AIOpsLab is duck-typed at the adapter boundary, never imported. Spec semantics are otherwise unchanged.
+
+### Adapter (normalize.py)
+- **`READ_ACTIONS`/`SUBMIT_ACTIONS` are hardcoded adapter constants** (`get_logs`, `get_metrics`, `get_traces`, `read_metrics`, `read_traces` / `submit`), taken from the M1 recon of `@read` decorators. An in-tree AIOpsLab integration would build this map via `aiopslab.utils.actions.get_actions()` instead (delta #7); standalone, the recon set is the ground truth available.
+- **The fenced-block parser is a behavioral clone of `ResponseParser`**, not a reuse — the real one is not importable here. It replicates the documented contract (exactly one ```-fenced block or the turn is non-action; `exec_shell` special-case strips `command=`, requires a quoted string, unescapes quotes/backslashes only). Any parse failure yields a non-action event, never an exception.
+- **`to_events(trace)` takes no `task_type` param** (the spec's mixin sketch passed one); task type flows through the verify `context` instead — normalization doesn't depend on it.
+- **One `TraceEvent` per input turn, `index` = trace position** — including system/user/env and unparseable assistant turns — so `event_indices` in findings always map 1:1 to real trace turns.
+- **Resource heuristics:** kwargs priority `service`>`deployment`>`pod`>`pod_name`>`name`>`app`; two positional strings → `args[1]` (AIOpsLab `(namespace, service)` convention). For kubectl commands, `kind/name` tokens require a known kind prefix (avoids matching file paths); namespace (`-n`/`--namespace`) is a last-resort fallback when no named resource is found (`kubectl get pods -n test` → `"test"`), chosen because a namespace-scoped identity beats `None` for same-resource read-before-write matching. All documented as tunable.
+
+### Policies (rules.py)
+- **Multiple submits double-flag by design:** a second `submit` is both a multiple-submit WARN and an action-after-submit VIOLATION (it *is* an action after the first submit). Implemented literally per spec section 6 item 6.
+- **Zero-submit WARN points at the last action event's real index** — no triggering event exists and fabricating indices is forbidden.
+- **Failure-loop pairing:** an attempt's response is the first `env` event after the assistant turn and before the next assistant turn; an unanswered assistant turn neither extends nor breaks a streak; a non-error response or a different-api attempt breaks it. Unparseable turns (api `None`) can form their own streak (the "No API call found" loop).
+- **Ordering checks use sequence position** (`events[:i]`), not `.index` arithmetic; `.index` appears only in emitted findings.
+
+### Engine
+- **Two-pass dedupe:** exact duplicates (`policy, severity, message, indices`) are removed from the findings list; scoring additionally dedupes by (`severity, sorted indices`) so the deliberate ShellSafety/ReadOnlyTask overlap (defense in depth) never double-penalizes one event. Findings are never dropped by the scoring pass — "dedupe identical findings in the engine, don't suppress the policy."
+
+### Judge (judge.py)
+- **`justified: true` wins over a contradictory non-empty `unjustified_steps`** (boolean is authoritative) → INFO "path justified". A `false` verdict whose cited indices are all invalid degrades to a WARN with empty indices carrying the dropped indices in evidence — the negative signal survives without fabricated indices.
+- **Judge emits an INFO finding in every terminal state** (disabled / no client / justified) for auditability at zero score weight.
+- **Strict verdict types** — no coercion of `"4"` to 4; malformed output is a WARN "judge output unparseable", client exceptions a WARN "judge call failed". Default model `claude-sonnet-5`, `max_tokens=2048` (adaptive thinking shares the output budget).
+
+### Mixin + demo wiring
+- **`task_desc` is read `getattr`-defensively** and omitted from context when absent — the attribute name is UNVERIFIED against AIOpsLab source (M1 didn't cover it); flagged assumption, cheap to correct in-tree.
+- **`trajectory_policies` uses an `is None` check**, so an injected empty list is respected rather than silently replaced by `default_policies()`.
+- **The spec's "two demo problems" (M4) are adapted** to stub Localization/Mitigation tasks in `tests/test_mixin.py` that replicate the confirmed `common_eval`/`add_result` contract — AIOpsLab problems don't exist in this repo. The acceptance diff (criterion 11.2) is proven there: stripping `trajectory_` keys from mixed-in results reproduces the plain task's results dict exactly.
+
+### Review-driven changes
+- **`classify_shell_command` matches case-insensitively** (sourcery-ai suggestion, accepted): production traces can come from case-insensitive shells (e.g. Windows), and `ShellSafetyPolicy` inherits the fix automatically since it delegates to the shared helper.
