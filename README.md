@@ -1,10 +1,18 @@
-# praxis
+<h1 align="center">praxis</h1>
 
-**A semantic trajectory verifier for LLM-agent traces.** It grades the *path* an agent took, not just whether it landed on the right answer.
+<p align="center">
+  <strong>🧭 A semantic trajectory verifier for LLM-agent traces.</strong><br>
+  It grades the <em>path</em> an agent took — not just whether it landed on the right answer.
+</p>
 
-![status](https://img.shields.io/badge/status-pre--release%20(WIP)-orange)
-![python](https://img.shields.io/badge/python-3.11%2B-blue)
-![license](https://img.shields.io/badge/license-MIT-green)
+<p align="center">
+  <img alt="status" src="https://img.shields.io/badge/status-feature--complete-brightgreen">
+  <img alt="tests" src="https://img.shields.io/badge/tests-160%20passing-brightgreen">
+  <img alt="python" src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue">
+  <img alt="core" src="https://img.shields.io/badge/core-stdlib--only-blueviolet">
+  <img alt="black" src="https://img.shields.io/badge/code%20style-black-000000">
+  <img alt="license" src="https://img.shields.io/badge/license-MIT-green">
+</p>
 
 ---
 
@@ -73,19 +81,32 @@ Severity weights, the mutating-verb denylist, and the failure-token set are all 
 
 ## Status
 
-**Design locked; implementation in progress.** This repo currently carries the full spec, the recon record, and the scaffold — not a working package yet.
+**✅ Feature-complete against the spec — all milestones implemented, 160 tests green.** The full build contract in [`docs/trajectory-verifier-spec.md`](docs/trajectory-verifier-spec.md) is satisfied end to end: the core engine, six deterministic policies, the optional judge, and the AIOpsLab adapter all exist with fixture-driven tests. CI runs the suite on Python 3.11 / 3.12 / 3.13 and enforces core purity and `black` formatting on every push.
 
-- ✅ **M1 — Recon.** AIOpsLab's real interfaces confirmed against source (trace type, action decorators, `eval`/`common_eval` seam, parser, error signaling). Findings and the resulting design deltas are in [`docs/NOTES.md`](docs/NOTES.md).
-- ⏳ **M2 — Core model + normalize.** `model.py` and the AIOpsLab `normalize.py`, with fixture-based tests. *(next)*
-- ⏳ **M3 — Deterministic policies + engine.**
-- ⏳ **M4 — Report + integration** (the `common_eval` mixin, wired on one localization and one mitigation problem).
-- ⏳ **M5 — LLM judge** (optional).
+| Milestone | Scope | Status |
+|---|---|---|
+| **M1 — Recon** | AIOpsLab's real interfaces confirmed against source (trace type, action decorators, `eval`/`common_eval` seam, parser, error signaling). Findings and design deltas in [`docs/NOTES.md`](docs/NOTES.md). | ✅ Done |
+| **M2 — Core model + normalize** | `model.py` (typed `TraceEvent`/`Finding`/`VerdictReport`) and the AIOpsLab `normalize.py`, covering telemetry-API classification and `exec_shell` verb-based `WRITE` inference. | ✅ Done |
+| **M3 — Deterministic policies + engine** | All six policies and `engine.verify()`; every failure mode has a dedicated fixture, and safe-path fixtures produce zero violations at score `1.0`. | ✅ Done |
+| **M4 — Report + integration** | `report.summarize()` and the `TrajectoryEvalMixin` hooking `common_eval` — proven additive (existing metrics preserved via `super()`, new `trajectory_*` keys added). | ✅ Done |
+| **M5 — LLM judge** *(optional)* | `JudgePolicy`, off by default, inert without `ANTHROPIC_API_KEY` (emits a single `INFO` finding, no network call), strict-JSON contract with defensive parsing. | ✅ Done |
+
+Acceptance criteria (spec §11) are met with a single deliberate caveat, below.
+
+> **One deliberate gap.** M4's integration is validated against stub task classes (`FakeLocalizationTask` / `FakeMitigationTask` in `tests/test_mixin.py`), not a live AIOpsLab checkout — AIOpsLab is intentionally not vendored here, to keep the core framework-free. The spec's literal "wire it onto one real localization and one real mitigation problem" step is therefore not exercised in CI. Closing it fully means adding an integration test that installs AIOpsLab and mixes the verifier onto two real problems.
 
 The full build contract, milestones, and acceptance criteria live in [`docs/trajectory-verifier-spec.md`](docs/trajectory-verifier-spec.md). Repo-scoped agent guidance is in [`CLAUDE.md`](CLAUDE.md).
 
-## Intended usage
+## Usage
 
-> The interface below is the **target** API from the spec — it describes M2–M4 output, not code that runs today.
+Install (core is dependency-free; the judge extra is optional):
+
+```bash
+pip install -e ".[dev]"      # core + test tooling
+pip install -e ".[judge]"    # optional: LLM-as-judge (requires ANTHROPIC_API_KEY)
+
+python -m pytest -q          # run the 160-test suite (no cluster needed)
+```
 
 As an evaluation add-on (AIOpsLab adapter):
 
